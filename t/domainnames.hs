@@ -2,10 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UnicodeSyntax         #-}
 
--- base --------------------------------
-
-import Control.Monad  ( return )
-
 -- base-unicode-symbols ----------------
 
 import Data.Monoid.Unicode  ( (⊕) )

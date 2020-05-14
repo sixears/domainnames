@@ -47,7 +47,7 @@ import Control.DeepSeq  ( NFData )
 
 import qualified  Dhall  as  D
 
-import Dhall  ( Interpret( autoWith ) )
+import Dhall  ( FromDhall( autoWith ) )
 
 -- fluffy ------------------------------
 
@@ -131,7 +131,7 @@ newtype DomainLabel = DomainLabel Text
 instance Printable DomainLabel where
   print (DomainLabel dl) = P.text dl
 
-instance Interpret DomainLabel where
+instance FromDhall DomainLabel where
   autoWith _ = __parseDomainLabel ⊳ D.strictText
 
 ------------------------------------------------------------
@@ -192,7 +192,7 @@ renderDomainLabels ds = Data.Text.intercalate "." (toText ⊳ toList ds)
 instance Printable DomainLabels where
   print (DomainLabels dls) = P.text $ renderDomainLabels dls
 
-instance Interpret DomainLabels where
+instance FromDhall DomainLabels where
   autoWith iopts = DomainLabels ⊳ fmap fromList (D.list (autoWith iopts))
 
 ----------------------------------------

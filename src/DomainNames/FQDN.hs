@@ -41,7 +41,7 @@ import Control.DeepSeq  ( NFData )
 
 -- dhall -------------------------------
 
-import Dhall  ( Interpret( autoWith ) )
+import Dhall  ( FromDhall( autoWith ) )
 
 -- fluffy ------------------------------
 
@@ -111,7 +111,7 @@ instance Domain FQDN where
 instance Printable FQDN where
   print (FQDN dls) = P.text $ toText dls ⊕ "."
 
-instance Interpret FQDN where
+instance FromDhall FQDN where
   autoWith iopts = __parseFQDN' ⊳ autoWith iopts
 
 parseFQDN ∷ (Printable ρ, AsFQDNError ε, MonadError ε η) ⇒ ρ → η FQDN

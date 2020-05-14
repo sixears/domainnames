@@ -35,7 +35,7 @@ import Data.Textual  ( Printable( print ), toString, toText )
 
 -- dhall -------------------------------
 
-import Dhall  ( Interpret( autoWith ) )
+import Dhall  ( FromDhall( autoWith ) )
 
 -- fluffy ------------------------------
 
@@ -100,7 +100,7 @@ instance Domain UQDN where
 instance Printable UQDN where
   print (UQDN dls) = P.text $ toText dls
 
-instance Interpret UQDN where
+instance FromDhall UQDN where
   autoWith iopts = __parseUQDN' ⊳ autoWith iopts
 
 parseUQDN ∷ (Printable ρ, AsUQDNError ε, MonadError ε η) ⇒ ρ → η UQDN

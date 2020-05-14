@@ -56,7 +56,7 @@ import Control.DeepSeq  ( NFData )
 
 -- dhall -------------------------------
 
-import Dhall  ( Interpret( autoWith ) )
+import Dhall  ( FromDhall( autoWith ) )
 
 -- fluffy ------------------------------
 
@@ -127,7 +127,7 @@ import DomainNames.Error.HostnameError
 newtype Localname = Localname DomainLabel
   deriving (Eq, Generic, Hashable, NFData, Show)
 
-instance Interpret Localname where
+instance FromDhall Localname where
   autoWith iopts = __parseLocalname' ⊳ autoWith iopts
 
 instance Printable Localname where
@@ -174,7 +174,7 @@ hostlocal (Hostname h) = Localname (domainHead h)
 
 ----------------------------------------
 
-instance Interpret Hostname where
+instance FromDhall Hostname where
   autoWith iopts = __parseHostname' ⊳ autoWith iopts
 
 instance FromJSON Hostname where
