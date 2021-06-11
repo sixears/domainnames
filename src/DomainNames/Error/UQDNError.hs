@@ -24,14 +24,14 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Lens  ( (⩼) )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -75,7 +75,7 @@ _UQDNNotFullyQualifiedErr = prism' UQDNFullyQualifiedErr
                                          (UQDNFullyQualifiedErr t) → Just t
                                          _                         → Nothing
                                    )
-                    
+
 _DomainErrorErr ∷ Prism' UQDNError DomainError
 _DomainErrorErr = prism' DomainErrorErr
                          (\ case (DomainErrorErr e) → Just e; _ → Nothing)
@@ -104,5 +104,5 @@ instance ToUQDNError DomainError where
 
 throwAsUQDNError ∷ (ToUQDNError α, AsUQDNError ε, MonadError ε η) ⇒ α → η β
 throwAsUQDNError = throwError ∘ (_UQDNError #) ∘ toUQDNError
-    
+
 -- that's all, folks! ----------------------------------------------------------

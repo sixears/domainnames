@@ -1,15 +1,8 @@
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE UnicodeSyntax              #-}
-{-# LANGUAGE ViewPatterns               #-}
-
 module DomainNames.UQDN
   ( UQDN, parseUQDN, parseUQDN' )
 where
+
+import Prelude  ( error )
 
 -- aeson -------------------------------
 
@@ -18,7 +11,7 @@ import Data.Aeson.Types  ( typeMismatch )
 -- base --------------------------------
 
 import Control.Monad  ( fail, return )
-import Data.Either    ( either )
+import Data.Either    ( either, fromRight )
 import Data.Eq        ( Eq )
 import Data.Function  ( ($) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
@@ -37,11 +30,6 @@ import Data.Textual  ( Printable( print ), toString, toText )
 
 import Dhall  ( FromDhall( autoWith ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Either   ( __right )
-import Fluffy.Functor  ( (⊳) )
-
 -- hashable ----------------------------
 
 import Data.Hashable  ( Hashable )
@@ -52,7 +40,8 @@ import Control.Lens.Iso  ( iso )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⊣) )
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Lens     ( (⊣) )
 
 -- mtl ---------------------------------
 
@@ -117,7 +106,7 @@ parseUQDN' ∷ (Printable ρ, MonadError UQDNError η) ⇒ ρ → η UQDN
 parseUQDN' = parseUQDN
 
 __parseUQDN ∷ Printable ρ ⇒ ρ → UQDN
-__parseUQDN = __right ∘ parseUQDN'
+__parseUQDN = fromRight (error "not a right") ∘ parseUQDN'
 
 __parseUQDN' ∷ Text → UQDN
 __parseUQDN' = __parseUQDN

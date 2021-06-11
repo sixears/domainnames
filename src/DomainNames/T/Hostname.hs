@@ -15,11 +15,7 @@ import System.IO      ( IO )
 
 -- data-textual ------------------------
 
-import Data.Textual  ( toString, toText ) 
-
--- fluffy ------------------------------
-
-import Fluffy.Tasty  ( (≟), assertRight, runTestsP_ )
+import Data.Textual  ( toString, toText )
 
 -- tasty -------------------------------
 
@@ -28,6 +24,10 @@ import Test.Tasty  ( TestTree, defaultMain, testGroup )
 -- tasty-hunit -------------------------
 
 import Test.Tasty.HUnit  ( assertEqual, testCase )
+
+-- tasty-plus --------------------------
+
+import TastyPlus  ( (≟), assertRight, runTestsP_ )
 
 -- text --------------------------------
 

@@ -25,10 +25,6 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Foldable   ( length )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism' )
@@ -40,7 +36,7 @@ import Control.Monad.Except  ( MonadError, throwError )
 
 -- text --------------------------------
 
-import Data.Text  ( Text )
+import Data.Text  ( Text, length )
 
 -- text-printer ------------------------
 
@@ -68,11 +64,11 @@ instance Exception DomainLabelError
 
 instance Printable DomainLabelError where
   print DomainLabelEmptyErr = P.text "empty domain label"
-  print (DomainLabelHyphenFirstCharErr d) = P.text $ 
+  print (DomainLabelHyphenFirstCharErr d) = P.text $
     [fmt|domain label first character must not be a hyphen '%t'|] d
-  print (DomainLabelLengthErr d) = P.text $ 
+  print (DomainLabelLengthErr d) = P.text $
     [fmt|domain label length %d exceeds %d '%t'|] (length d) maxLabelLength d
-  print (DomainLabelIllegalCharErr d) = P.text $ 
+  print (DomainLabelIllegalCharErr d) = P.text $
     [fmt|domain label characters must be alpha-numeric or hyphen '%t'|] d
 
 --------------------
@@ -86,5 +82,5 @@ instance AsDomainLabelError DomainLabelError where
 throwAsDomainLabelError ∷ (AsDomainLabelError ε, MonadError ε η) ⇒
                           DomainLabelError → η α
 throwAsDomainLabelError = throwError ∘ (_DomainLabelError #)
-    
+
 -- that's all, folks! ----------------------------------------------------------

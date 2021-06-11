@@ -25,14 +25,14 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Lens  ( (⩼) )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -76,7 +76,7 @@ _FQDNNotFullyQualifiedErr = prism' FQDNNotFullyQualifiedErr
                                          (FQDNNotFullyQualifiedErr t) → Just t
                                          _                            → Nothing
                                    )
-                    
+
 _DomainErrorErr ∷ Prism' FQDNError DomainError
 _DomainErrorErr = prism' DomainErrorErr
                          (\ case (DomainErrorErr e) → Just e; _ → Nothing)
@@ -105,5 +105,5 @@ instance ToFQDNError DomainError where
 
 throwAsFQDNError ∷ (ToFQDNError α, AsFQDNError ε, MonadError ε η) ⇒ α → η β
 throwAsFQDNError = throwError ∘ (_FQDNError #) ∘ toFQDNError
-    
+
 -- that's all, folks! ----------------------------------------------------------

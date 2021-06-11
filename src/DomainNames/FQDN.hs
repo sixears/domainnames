@@ -1,15 +1,8 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE QuasiQuotes                #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE UnicodeSyntax              #-}
-{-# LANGUAGE ViewPatterns               #-}
-
 module DomainNames.FQDN
   ( FQDN, fqdn, parseFQDN, parseFQDN' )
 where
+
+import Prelude  ( error )
 
 -- aeson -------------------------------
 
@@ -18,9 +11,9 @@ import Data.Aeson.Types  ( typeMismatch )
 -- base --------------------------------
 
 import Control.Monad  ( fail, return )
-import Data.Either    ( either )
+import Data.Either    ( either, fromRight )
 import Data.Eq        ( Eq )
-import Data.Function  ( ($) )
+import Data.Function  ( ($), (&) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.Ord       ( Ord )
 import Data.String    ( String )
@@ -30,6 +23,10 @@ import Text.Show      ( Show )
 
 import Data.Function.Unicode  ( (∘) )
 import Data.Monoid.Unicode    ( (⊕) )
+
+-- data-default ------------------------
+
+import Data.Default  ( def )
 
 -- data-textual ------------------------
 
@@ -41,13 +38,7 @@ import Control.DeepSeq  ( NFData )
 
 -- dhall -------------------------------
 
-import Dhall  ( FromDhall( autoWith ) )
-
--- fluffy ------------------------------
-
-import Fluffy.Either   ( __right )
-import Fluffy.Functor  ( (⊳) )
-import Fluffy.Quasi    ( mkQuasiQuoterExp )
+import Dhall  ( FromDhall( autoWith ), Generic )
 
 -- hashable ----------------------------
 
@@ -59,7 +50,13 @@ import Control.Lens.Iso  ( iso )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⊣) )
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Maybe    ( 𝕄, pattern 𝕵 )
+import Data.MoreUnicode.Lens     ( (⊣), (⊩) )
+
+-- quasiquoting ------------------------
+
+import QuasiQuoting    ( exp, mkQQ )
 
 -- mtl ---------------------------------
 
@@ -99,7 +96,7 @@ import DomainNames.Error.FQDNError    ( AsFQDNError
 --------------------------------------------------------------------------------
 
 newtype FQDN = FQDN { unFQDN ∷ DomainLabels }
-  deriving (Eq, Hashable, NFData, Ord, Show)
+  deriving (Eq, Generic, Hashable, NFData, Ord, Show)
 
 instance IsDomainLabels FQDN where
   domainLabels = iso unFQDN FQDN
@@ -128,7 +125,7 @@ parseFQDN' ∷ MonadError FQDNError η ⇒ Text → η FQDN
 parseFQDN' = parseFQDN
 
 __parseFQDN ∷ Text → FQDN
-__parseFQDN = __right ∘ parseFQDN'
+__parseFQDN = fromRight (error "not a right") ∘ parseFQDN'
 
 __parseFQDN' ∷ Text → FQDN
 __parseFQDN' = __parseFQDN
@@ -138,8 +135,8 @@ instance FromJSON FQDN where
   parseJSON invalid    = typeMismatch "FQDN" invalid
 
 fqdn ∷ QuasiQuoter
-fqdn = let parseExp ∷ String → ExpQ
-           parseExp = appE (varE '__parseFQDN') ∘ litE ∘ stringL
-        in mkQuasiQuoterExp "fqdn" parseExp
+fqdn = let parseExp ∷ String → 𝕄 ExpQ
+           parseExp = 𝕵 ∘ appE (varE '__parseFQDN') ∘ litE ∘ stringL
+        in mkQQ "fqdn" $ def & exp ⊩ parseExp
 
 -- that's all, folks! ----------------------------------------------------------

@@ -6,10 +6,9 @@
 
 import Data.Monoid.Unicode  ( (⊕) )
 
--- fluffy ------------------------------
+-- more-unicode ------------------------
 
-import Fluffy.Applicative  ( (⊵) )
-import Fluffy.Tasty        ( runTests_, tastyOptParser )
+import Data.MoreUnicode.Applicative  ( (⊵) )
 
 -- optparse-applicative ----------------
 
@@ -20,6 +19,10 @@ import Options.Applicative.Extra    ( customExecParser, helper )
 -- tasty -------------------------------
 
 import Test.Tasty  ( TestTree, testGroup )
+
+-- tasty-plus --------------------------
+
+import TastyPlus  ( runTests_, tastyOptParser )
 
 ------------------------------------------------------------
 --                     local imports                      --

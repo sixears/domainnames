@@ -26,14 +26,14 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Lens  ( (⩼) )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -75,7 +75,7 @@ instance Printable DomainError where
 _DomainEmptyErr ∷ Prism' DomainError ()
 _DomainEmptyErr = prism' (const DomainEmptyErr)
                          ( \ case DomainEmptyErr → Just (); _ → Nothing )
-                    
+
 _DomainLabelErr ∷ Prism' DomainError DomainLabelError
 _DomainLabelErr = prism' DomainLabelErr
                          (\ case (DomainLabelErr e) → Just e; _ → Nothing)
@@ -94,7 +94,7 @@ instance AsDomainError DomainError where
 
 instance AsDomainLabelError DomainError where
   _DomainLabelError = prism' DomainLabelErr (⩼ _DomainLabelErr)
-    
+
 --------------------
 
 class ToDomainError α where
@@ -108,5 +108,5 @@ instance ToDomainError DomainLabelError where
 
 throwAsDomainError ∷ (ToDomainError α, AsDomainError ε, MonadError ε η) ⇒ α → η β
 throwAsDomainError = throwError ∘ (_DomainError #) ∘ toDomainError
-    
+
 -- that's all, folks! ----------------------------------------------------------

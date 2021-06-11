@@ -1,12 +1,3 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module DomainNames.Hostname
   ( Hostname, Localname
   , (<.>), (<..>)
@@ -16,6 +7,8 @@ module DomainNames.Hostname
   )
 where
 
+import Prelude  ( error )
+
 -- aeson -------------------------------
 
 import Data.Aeson.Types  ( typeMismatch )
@@ -23,9 +16,9 @@ import Data.Aeson.Types  ( typeMismatch )
 -- base --------------------------------
 
 import Control.Monad       ( fail, return )
-import Data.Either         ( either )
+import Data.Either         ( either, fromRight )
 import Data.Eq             ( Eq )
-import Data.Function       ( ($) )
+import Data.Function       ( ($), (&) )
 import Data.List.NonEmpty  ( NonEmpty( (:|) ) )
 import Data.Maybe          ( Maybe( Just, Nothing ) )
 import Data.Ord            ( Ord, max, min )
@@ -46,6 +39,10 @@ import qualified  Data.Map  as  Map
 
 import Data.Map  ( mapAccumWithKey )
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), toString, toText )
@@ -58,19 +55,13 @@ import Control.DeepSeq  ( NFData )
 
 import Dhall  ( FromDhall( autoWith ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Containers.NonEmptyHashSet
-                       ( NonEmptyHashSet, toNEList )
-import Fluffy.Either   ( __right )
-import Fluffy.ErrTs    ( ErrTs, errT )
-import Fluffy.Functor  ( (⊳) )
-import Fluffy.IP4      ( IP4 )
-import Fluffy.Quasi    ( mkQuasiQuoterExp )
-
 -- hashable ----------------------------
 
 import Data.Hashable  ( Hashable )
+
+-- ip4 ---------------------------------
+
+import IP4  ( IP4 )
 
 -- lens --------------------------------
 
@@ -79,12 +70,22 @@ import Control.Lens.Iso     ( from, iso )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Monoid  ( ф )
-import Data.MoreUnicode.Lens    ( (⊣) )
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Maybe    ( 𝕄, pattern 𝕵 )
+import Data.MoreUnicode.Monoid   ( ф )
+import Data.MoreUnicode.Lens     ( (⊣), (⊩) )
 
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- non-empty-containers ----------------
+
+import NonEmptyContainers.NonEmptyHashSet  ( NonEmptyHashSet, toNEList )
+
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( exp, mkQQ )
 
 -- template-haskell --------------------
 
@@ -146,15 +147,15 @@ parseLocalname' ∷ (Printable ρ, MonadError LocalnameError η) ⇒ ρ → η L
 parseLocalname' = parseLocalname
 
 __parseLocalname ∷ Printable ρ ⇒ ρ → Localname
-__parseLocalname = __right ∘ parseLocalname'
+__parseLocalname = fromRight (error "not a Right") ∘ parseLocalname'
 
 __parseLocalname' ∷ Text → Localname
 __parseLocalname' = __parseLocalname
 
 localname ∷ QuasiQuoter
-localname = let parseExp ∷ String → ExpQ
-                parseExp = appE (varE '__parseLocalname') ∘ litE ∘ stringL
-             in mkQuasiQuoterExp "local" parseExp
+localname = let parseExp ∷ String → 𝕄 ExpQ
+                parseExp = 𝕵 ∘ appE (varE '__parseLocalname') ∘ litE ∘ stringL
+             in mkQQ "local" $ def & exp ⊩ parseExp
 
 ------------------------------------------------------------
 
@@ -196,16 +197,16 @@ parseHostname' ∷ (Printable ρ, MonadError HostnameError η) ⇒ ρ → η Hos
 parseHostname' = parseHostname
 
 __parseHostname ∷ Printable ρ ⇒ ρ → Hostname
-__parseHostname = __right ∘ parseHostname'
+__parseHostname = fromRight (error "not a Right") ∘ parseHostname'
 
 __parseHostname' ∷ Text → Hostname
 __parseHostname' = __parseHostname
 
 hostname ∷ QuasiQuoter
-hostname = let parseExp ∷ String → ExpQ
-               parseExp = appE (varE '__parseHostname') ∘ litE ∘ stringL
-            in mkQuasiQuoterExp "hostname" parseExp
-                
+hostname = let parseExp ∷ String → 𝕄 ExpQ
+               parseExp = 𝕵 ∘ appE (varE '__parseHostname') ∘ litE ∘ stringL
+            in mkQQ "hostname" $ def & exp ⊩ parseExp
+
 
 host ∷ QuasiQuoter
 host = hostname
@@ -222,7 +223,7 @@ host = hostname
 
 -- given two hostnames; if one is the other+"-wl", then return the base
 -- name - else return the first name, and an error
-checkWL' ∷ Hostname → Hostname → (ErrTs,Hostname)
+checkWL' ∷ Hostname → Hostname → ([Text],Hostname)
 checkWL' h1 h2 =
   let (l1 :| d1) = h1 ⊣ dLabels
       (l2 :| d2) = h2 ⊣ dLabels
@@ -234,8 +235,8 @@ checkWL' h1 h2 =
            then (ф,h2)
            else if toText l2 ≡ toText l1 ⊕ "-wl"
                 then (ф,h1)
-                else (errT errNm, min h1 h2)
-      else (errT errDm, min h1 h2)
+                else ([errNm], min h1 h2)
+      else ([errDm], min h1 h2)
 
 --------------------
 
@@ -243,12 +244,12 @@ checkWL' h1 h2 =
      is the other + "-wl"; return the base name; or else add an error.
      The IP is passed just for the errmsg
  -}
-checkWL ∷ IP4 → NonEmptyHashSet Hostname → (ErrTs, Hostname)
+checkWL ∷ IP4 → NonEmptyHashSet Hostname → ([Text], Hostname)
 checkWL i hh = let errTooMany l = [fmt|too many hosts for IP %T (%L)|] i l
                 in case toNEList hh of
                      h  :| []     → (ф,h)
                      h1 :| [h2]   → checkWL' h1 h2
-                     lh@(h1 :| _) → (errT (errTooMany lh), h1)
+                     lh@(h1 :| _) → ([errTooMany lh], h1)
 
 ----------------------------------------
 
@@ -257,7 +258,7 @@ checkWL i hh = let errTooMany l = [fmt|too many hosts for IP %T (%L)|] i l
      ip->{many hostnames} that don't fit that rule).
  -}
 filterWL ∷ Map.Map IP4 (NonEmptyHashSet Hostname)
-         → (Map.Map IP4 Hostname, ErrTs)
+         → (Map.Map IP4 Hostname, [Text])
 filterWL = let accumulator es i hh = let (es',h) = checkWL i hh in (es'⊕es, h)
             in swap ∘ mapAccumWithKey accumulator ф
 

@@ -1,10 +1,3 @@
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE UnicodeSyntax              #-}
-{-# LANGUAGE ViewPatterns               #-}
-
 module DomainNames.Domain
   ( Domain( (<:>), domainHead, prepend )
   , DomainLabel, DomainLabels, IsDomainLabels( domainLabels, dLabels )
@@ -13,15 +6,17 @@ module DomainNames.Domain
   )
 where
 
+import Prelude  ( error, fromIntegral )
+
 -- base --------------------------------
 
 import Control.Monad       ( mapM, return )
 import Data.Bool           ( not )
 import Data.Char           ( isAlphaNum )
-import Data.Either         ( Either( Left, Right ) )
+import Data.Either         ( Either( Left, Right ), fromRight )
 import Data.Eq             ( Eq )
 import Data.Foldable       ( toList )
-import Data.Function       ( ($), id )
+import Data.Function       ( ($), (&), id )
 import Data.Functor        ( fmap )
 import Data.List.NonEmpty  ( NonEmpty( (:|) ), fromList, head )
 import Data.Maybe          ( Maybe( Just, Nothing ) )
@@ -35,6 +30,10 @@ import Data.Bool.Unicode      ( (∨) )
 import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
 
+-- data-default ------------------------
+
+import Data.Default  ( def )
+
 -- data-textual ------------------------
 
 import Data.Textual  ( Printable( print ), toText )
@@ -47,16 +46,7 @@ import Control.DeepSeq  ( NFData )
 
 import qualified  Dhall  as  D
 
-import Dhall  ( FromDhall( autoWith ) )
-
--- fluffy ------------------------------
-
-import Fluffy.Either    ( __right )
-import Fluffy.Foldable  ( length )
-import Fluffy.Functor   ( (⊳) )
-import Fluffy.List      ( (⋮) )
-import Fluffy.Quasi     ( mkQuasiQuoterExp )
-import Fluffy.Text      ( splitOn )
+import Dhall  ( FromDhall( autoWith ), Generic )
 
 -- hashable ----------------------------
 
@@ -67,9 +57,19 @@ import Data.Hashable  ( Hashable )
 import Control.Lens.Getter  ( view )
 import Control.Lens.Iso     ( Iso', from, iso )
 
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Functor  ( (⊳) )
+import Data.MoreUnicode.Lens     ( (⊩) )
+import Data.MoreUnicode.Maybe    ( 𝕄, pattern 𝕵 )
+
 -- mtl ---------------------------------
 
 import Control.Monad.Except  ( MonadError )
+
+-- quasiquoting ------------------------
+
+import QuasiQuoting  ( exp, mkQQ )
 
 -- template-haskell --------------------
 
@@ -78,7 +78,8 @@ import Language.Haskell.TH.Quote  ( QuasiQuoter )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, any, intercalate, uncons )
+import qualified  Data.Text
+import Data.Text  ( Text, any, intercalate, length, uncons )
 
 -- text-printer ------------------------
 
@@ -125,8 +126,16 @@ import DomainNames.Error.DomainLabelError
 
 ------------------------------------------------------------
 
+{-| `Data.Text.splitOn` always returns a non-empty list - even an empty string
+    returns a list (`[""]`); we encode that here
+-}
+splitOn ∷ Text → Text → NonEmpty Text
+splitOn s = fromList ∘ Data.Text.splitOn s
+
+------------------------------------------------------------
+
 newtype DomainLabel = DomainLabel Text
-  deriving (Eq, Hashable, NFData, Ord, Show)
+  deriving (Eq, Generic, Hashable, NFData, Ord, Show)
 
 instance Printable DomainLabel where
   print (DomainLabel dl) = P.text dl
@@ -144,7 +153,7 @@ parseDomainLabel (toText → d) =
     Just ('-', _) → throwAsDomainLabelError $ DomainLabelHyphenFirstCharErr d
     _             → if any ( \ c → not $ isAlphaNum c ∨ c ≡ '-' ) d
                     then throwAsDomainLabelError $ DomainLabelIllegalCharErr d
-                    else if length d > maxLabelLength
+                    else if fromIntegral (length d) > maxLabelLength
                          then throwAsDomainLabelError $ DomainLabelLengthErr d
                          else return $ DomainLabel d
 
@@ -153,15 +162,16 @@ parseDomainLabel' ∷ (Printable ρ, MonadError DomainLabelError η) ⇒
 parseDomainLabel' = parseDomainLabel
 
 __parseDomainLabel ∷ Printable ρ ⇒ ρ → DomainLabel
-__parseDomainLabel = __right ∘ parseDomainLabel'
+__parseDomainLabel = fromRight (error "not a right") ∘ parseDomainLabel'
 
 __parseDomainLabel' ∷ Text → DomainLabel
 __parseDomainLabel' = __parseDomainLabel
 
 domainLabel ∷ QuasiQuoter
-domainLabel = let parseExp ∷ String → ExpQ
-                  parseExp = appE (varE '__parseDomainLabel') ∘ litE ∘ stringL
-               in mkQuasiQuoterExp "domainLabel" parseExp
+domainLabel =
+  let parseExp ∷ String → 𝕄 ExpQ
+      parseExp = 𝕵 ∘ appE (varE '__parseDomainLabel') ∘ litE ∘ stringL
+  in mkQQ "domainLabel" $ def & exp ⊩ parseExp
 
 dLabel ∷ QuasiQuoter
 dLabel = domainLabel
@@ -177,7 +187,7 @@ class IsDomainLabels δ where
                      (view (from domainLabels) ∘ view (from dLabels))
 
 newtype DomainLabels = DomainLabels { unDomainLabels ∷ NonEmpty DomainLabel }
-  deriving (Eq, Hashable, NFData, Ord, Show)
+  deriving (Eq, Generic, Hashable, NFData, Ord, Show)
 
 instance IsDomainLabels DomainLabels where
   domainLabels = id
@@ -200,7 +210,7 @@ instance FromDhall DomainLabels where
 checkDomainLength ∷ (AsDomainError ε, MonadError ε η) ⇒
                     NonEmpty DomainLabel → η DomainLabels
 checkDomainLength dls = let txt = renderDomainLabels dls
-                         in if length txt > maxDomainLength
+                         in if fromIntegral (length txt) > maxDomainLength
                             then throwAsDomainError $ DomainLengthErr txt
                             else return $ DomainLabels dls
 
@@ -214,7 +224,7 @@ parseDomainLabels (splitOn "." ∘ toText → ds) =
   case mapM parseDomainLabel' ds of
     Left  dle → throwAsDomainError dle
     Right ds' → checkDomainLength ds'
-  
+
 parseDomainLabels' ∷ (Printable ρ, MonadError DomainError η) ⇒
                      ρ → η DomainLabels
 parseDomainLabels' = parseDomainLabels
@@ -230,7 +240,7 @@ class IsDomainLabels δ ⇒ Domain δ where
   (<:>) = prepend
 
 instance Domain DomainLabels where
-  prepend d  (DomainLabels ds) = checkDomainLength (d ⋮ ds)
+  prepend d  (DomainLabels ds) = checkDomainLength (d :| (toList ds))
   domainHead (DomainLabels ds) = head ds
 
 -- that's all, folks! ----------------------------------------------------------

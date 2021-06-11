@@ -24,14 +24,14 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Lens  ( (⩼) )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -69,7 +69,7 @@ _HostnameNotFullyQualifiedE ∷ Prism' HostnameError Text
 _HostnameNotFullyQualifiedE =
   prism' HostnameNotFullyQualifiedE
          ( \ case (HostnameNotFullyQualifiedE h) → Just h; _ → Nothing )
-                    
+
 _HostnameFQDNE ∷ Prism' HostnameError FQDNError
 _HostnameFQDNE = prism' HostnameFQDNE
                           (\ case (HostnameFQDNE e) → Just e; _ → Nothing)
@@ -99,7 +99,7 @@ instance ToHostnameError DomainError where
 throwAsHostnameError ∷ (ToHostnameError α, AsHostnameError ε, MonadError ε η) ⇒
                        α → η β
 throwAsHostnameError = throwError ∘ (_HostnameError #) ∘ toHostnameError
-    
+
 instance AsHostnameError HostnameError where
   _HostnameError = id
 

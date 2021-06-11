@@ -23,14 +23,14 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
--- fluffy ------------------------------
-
-import Fluffy.Lens  ( (⩼) )
-
 -- lens --------------------------------
 
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Lens  ( (⩼) )
 
 -- mtl ---------------------------------
 
@@ -73,7 +73,7 @@ instance ToLocalnameError DomainLabelError where
 throwAsLocalnameError ∷ (ToLocalnameError α, AsLocalnameError ε, MonadError ε η) ⇒
                        α → η β
 throwAsLocalnameError = throwError ∘ (_LocalnameError #) ∘ toLocalnameError
-    
+
 instance AsLocalnameError LocalnameError where
   _LocalnameError = id
 
