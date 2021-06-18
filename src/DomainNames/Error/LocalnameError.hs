@@ -11,7 +11,7 @@ where
 
 import Control.Exception  ( Exception )
 import Data.Eq            ( Eq )
-import Data.Function      ( id )
+import Data.Function      ( ($), (&), id )
 import Data.Maybe         ( Maybe( Just ) )
 import Text.Show          ( Show )
 
@@ -23,14 +23,19 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⩼) )
+import Data.MoreUnicode.Lens  ( (⊣), (⊢), (⩼) )
 
 -- mtl ---------------------------------
 
@@ -48,13 +53,26 @@ import DomainNames.Error.DomainLabelError
 data LocalnameError = LocalnameDLErr DomainLabelError
   deriving (Eq, Show)
 
+--------------------
+
 instance Exception LocalnameError
+
+--------------------
+
+instance HasCallstack LocalnameError where
+  callstack = lens (\ case LocalnameDLErr dle → dle ⊣ callstack)
+                   (\ (LocalnameDLErr dle) cs →
+                        LocalnameDLErr $ dle & callstack ⊢ cs)
+
+--------------------
+
+instance Printable LocalnameError where
+  print (LocalnameDLErr e) = print e
 
 _LocalnameDLErr ∷ Prism' LocalnameError DomainLabelError
 _LocalnameDLErr = prism' LocalnameDLErr (\ (LocalnameDLErr e) → Just e)
 
-instance Printable LocalnameError where
-  print (LocalnameDLErr e) = print e
+----------------------------------------
 
 class AsLocalnameError ε where
   _LocalnameError ∷ Prism' ε LocalnameError

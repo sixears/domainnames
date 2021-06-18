@@ -13,8 +13,10 @@ where
 -- base --------------------------------
 
 import Control.Exception  ( Exception )
-import Data.Eq            ( Eq )
+import Data.Bool          ( Bool( False, True ) )
+import Data.Eq            ( Eq( (==) ) )
 import Data.Function      ( ($), id )
+import GHC.Stack          ( CallStack )
 import Text.Show          ( Show )
 
 -- base-unicode-symbols ----------------
@@ -25,8 +27,13 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism' )
 import Control.Lens.Review  ( (#) )
 
@@ -54,21 +61,48 @@ import DomainNames.Constants  ( maxLabelLength )
 
 --------------------------------------------------------------------------------
 
-data DomainLabelError = DomainLabelEmptyErr
-                      | DomainLabelHyphenFirstCharErr Text
-                      | DomainLabelLengthErr     Text
-                      | DomainLabelIllegalCharErr     Text
-  deriving (Eq, Show)
+data DomainLabelError = DomainLabelEmptyErr                CallStack
+                      | DomainLabelHyphenFirstCharErr Text CallStack
+                      | DomainLabelLengthErr          Text CallStack
+                      | DomainLabelIllegalCharErr     Text CallStack
+  deriving Show
 
 instance Exception DomainLabelError
 
+instance Eq DomainLabelError where
+  (DomainLabelEmptyErr _)      == (DomainLabelEmptyErr _)     = True
+  (DomainLabelHyphenFirstCharErr t1 _) == (DomainLabelHyphenFirstCharErr t2 _) =
+    t1 == t2
+  (DomainLabelLengthErr t1 _)  == (DomainLabelLengthErr t2 _) = t1 == t2
+  (DomainLabelIllegalCharErr t1 _)  == (DomainLabelIllegalCharErr t2 _) =
+    t1 == t2
+  _ == _ = False
+
+instance HasCallstack DomainLabelError where
+  callstack = lens (\ case DomainLabelEmptyErr             cs → cs
+                           DomainLabelHyphenFirstCharErr _ cs → cs
+                           DomainLabelLengthErr          _ cs → cs
+                           DomainLabelIllegalCharErr     _ cs → cs
+                   )
+                   (\ dle cs →
+                        case dle of
+                          DomainLabelEmptyErr _ →
+                            DomainLabelEmptyErr cs
+                          DomainLabelHyphenFirstCharErr t _ →
+                            DomainLabelHyphenFirstCharErr t cs
+                          DomainLabelLengthErr t _ →
+                            DomainLabelLengthErr t cs
+                          DomainLabelIllegalCharErr t _ →
+                            DomainLabelIllegalCharErr t cs
+                   )
+
 instance Printable DomainLabelError where
-  print DomainLabelEmptyErr = P.text "empty domain label"
-  print (DomainLabelHyphenFirstCharErr d) = P.text $
+  print (DomainLabelEmptyErr _) = P.text "empty domain label"
+  print (DomainLabelHyphenFirstCharErr d _) = P.text $
     [fmt|domain label first character must not be a hyphen '%t'|] d
-  print (DomainLabelLengthErr d) = P.text $
+  print (DomainLabelLengthErr d _) = P.text $
     [fmt|domain label length %d exceeds %d '%t'|] (length d) maxLabelLength d
-  print (DomainLabelIllegalCharErr d) = P.text $
+  print (DomainLabelIllegalCharErr d _) = P.text $
     [fmt|domain label characters must be alpha-numeric or hyphen '%t'|] d
 
 --------------------

@@ -16,6 +16,7 @@ import Data.Eq        ( Eq )
 import Data.Function  ( ($) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import GHC.Generics   ( Generic )
+import GHC.Stack      ( callStack )
 import Text.Show      ( Show )
 
 -- base-unicode-symbols ----------------
@@ -96,9 +97,9 @@ parseUQDN ∷ (Printable ρ, AsUQDNError ε, MonadError ε η) ⇒ ρ → η UQD
 parseUQDN (toText → t) =
   case unsnoc t of
     Nothing →
-      throwAsUQDNError DomainEmptyErr
+      throwAsUQDNError $ DomainEmptyErr callStack
     Just (_,'.') →
-      throwAsUQDNError $ UQDNFullyQualifiedErr t
+      throwAsUQDNError $ UQDNFullyQualifiedErr t callStack
     Just _ →
       either throwAsUQDNError (return ∘ UQDN) (parseDomainLabels' t)
 

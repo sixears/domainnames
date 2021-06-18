@@ -1,8 +1,3 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-
 module DomainNames.Error.HostnameError
   ( AsHostnameError, HostnameError( HostnameNotFullyQualifiedE )
   , throwAsHostnameError )
@@ -11,9 +6,9 @@ where
 -- base --------------------------------
 
 import Control.Exception  ( Exception )
-import Data.Eq            ( Eq )
-import Data.Function      ( ($), id )
-import Data.Maybe         ( Maybe( Just, Nothing ) )
+import Data.Eq            ( Eq( (==) ) )
+import Data.Function      ( ($), (&), id )
+import GHC.Stack          ( CallStack, callStack )
 import Text.Show          ( Show )
 
 -- base-unicode-symbols ----------------
@@ -24,14 +19,21 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⩼) )
+import Data.MoreUnicode.Bool   ( pattern 𝕱 )
+import Data.MoreUnicode.Lens   ( (⊣), (⊢), (⩼) )
+import Data.MoreUnicode.Maybe  ( pattern 𝕵, pattern 𝕹 )
 
 -- mtl ---------------------------------
 
@@ -59,25 +61,42 @@ import DomainNames.Error.FQDNError    ( AsFQDNError( _FQDNError ), FQDNError
 
 --------------------------------------------------------------------------------
 
-data HostnameError = HostnameNotFullyQualifiedE Text
+data HostnameError = HostnameNotFullyQualifiedE Text CallStack
                    | HostnameFQDNE FQDNError
-  deriving (Eq, Show)
+  deriving Show
 
 instance Exception HostnameError
 
+instance Eq HostnameError where
+  (HostnameNotFullyQualifiedE t1 _) == (HostnameNotFullyQualifiedE t2 _) =
+    t1 == t2
+  (HostnameFQDNE e1) == (HostnameFQDNE e2) = e1 == e2
+  _ == _ = 𝕱
+
 _HostnameNotFullyQualifiedE ∷ Prism' HostnameError Text
 _HostnameNotFullyQualifiedE =
-  prism' HostnameNotFullyQualifiedE
-         ( \ case (HostnameNotFullyQualifiedE h) → Just h; _ → Nothing )
+  prism' (\ t → HostnameNotFullyQualifiedE t callStack)
+         (\ case (HostnameNotFullyQualifiedE h _) → 𝕵 h; _ → 𝕹)
 
 _HostnameFQDNE ∷ Prism' HostnameError FQDNError
 _HostnameFQDNE = prism' HostnameFQDNE
-                          (\ case (HostnameFQDNE e) → Just e; _ → Nothing)
+                          (\ case (HostnameFQDNE e) → 𝕵 e; _ → 𝕹)
 
 instance Printable HostnameError where
-  print (HostnameNotFullyQualifiedE h) =
+  print (HostnameNotFullyQualifiedE h _) =
     P.text $ [fmt|hostname is not fully qualified: '%t'|] h
   print (HostnameFQDNE e) = print e
+
+instance HasCallstack HostnameError where
+  callstack = lens (\ case HostnameNotFullyQualifiedE _ cs → cs
+                           HostnameFQDNE              hfe  → hfe ⊣ callstack)
+                   (\ he cs → case he of
+                                HostnameNotFullyQualifiedE t _ →
+                                  HostnameNotFullyQualifiedE t cs
+                                HostnameFQDNE hfe →
+                                  HostnameFQDNE $ hfe & callstack ⊢ cs
+                   )
+
 
 class AsHostnameError ε where
   _HostnameError ∷ Prism' ε HostnameError

@@ -17,6 +17,7 @@ import Data.Function  ( ($), (&) )
 import Data.Maybe     ( Maybe( Just, Nothing ) )
 import Data.Ord       ( Ord )
 import Data.String    ( String )
+import GHC.Stack      ( callStack )
 import Text.Show      ( Show )
 
 -- base-unicode-symbols ----------------
@@ -115,11 +116,11 @@ parseFQDN ∷ (Printable ρ, AsFQDNError ε, MonadError ε η) ⇒ ρ → η FQD
 parseFQDN (toText → t) =
   case unsnoc t of
     Nothing →
-      throwAsFQDNError DomainEmptyErr
+      throwAsFQDNError $ DomainEmptyErr callStack
     Just (d,'.') →
       either throwAsFQDNError (return ∘ FQDN) (parseDomainLabels' d)
     Just _ →
-      throwAsFQDNError $ FQDNNotFullyQualifiedErr t
+      throwAsFQDNError $ FQDNNotFullyQualifiedErr t callStack
 
 parseFQDN' ∷ MonadError FQDNError η ⇒ Text → η FQDN
 parseFQDN' = parseFQDN

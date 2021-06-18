@@ -1,9 +1,3 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module DomainNames.Error.UQDNError
   ( AsUQDNError, UQDNError( UQDNFullyQualifiedErr ), throwAsUQDNError )
 where
@@ -11,9 +5,9 @@ where
 -- base --------------------------------
 
 import Control.Exception  ( Exception )
-import Data.Eq            ( Eq )
-import Data.Function      ( ($), id )
-import Data.Maybe         ( Maybe( Just, Nothing ) )
+import Data.Eq            ( Eq( (==) ) )
+import Data.Function      ( ($), (&), id )
+import GHC.Stack          ( CallStack, callStack )
 import Text.Show          ( Show )
 
 -- base-unicode-symbols ----------------
@@ -24,14 +18,21 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⩼) )
+import Data.MoreUnicode.Bool   ( pattern 𝕱 )
+import Data.MoreUnicode.Lens   ( (⊣), (⊢), (⩼) )
+import Data.MoreUnicode.Maybe  ( pattern 𝕵, pattern 𝕹 )
 
 -- mtl ---------------------------------
 
@@ -58,29 +59,55 @@ import DomainNames.Error.DomainError  ( AsDomainError( _DomainError )
 
 --------------------------------------------------------------------------------
 
-data UQDNError = UQDNFullyQualifiedErr Text
+data UQDNError = UQDNFullyQualifiedErr Text CallStack
                | DomainErrorErr DomainError
-  deriving (Eq, Show)
+  deriving Show
+
+--------------------
 
 instance Exception UQDNError
 
+--------------------
+
+instance Eq UQDNError where
+  (UQDNFullyQualifiedErr t1 _) == (UQDNFullyQualifiedErr t2 _) = t1  == t2
+  (DomainErrorErr        de1)  == (DomainErrorErr        de2)  = de1 == de2
+  _                            == _                            = 𝕱
+
+--------------------
+
+instance HasCallstack UQDNError where
+  callstack = lens (\ case UQDNFullyQualifiedErr _ cs → cs
+                           DomainErrorErr de          → de ⊣ callstack)
+                   (\ ue cs → case ue of UQDNFullyQualifiedErr t _ →
+                                           UQDNFullyQualifiedErr t cs
+                                         DomainErrorErr de →
+                                           DomainErrorErr $ de & callstack ⊢ cs
+                   )
+
+--------------------
+
 instance Printable UQDNError where
-  print (UQDNFullyQualifiedErr t) =
+  print (UQDNFullyQualifiedErr t _) =
     P.text $ [fmt|UQDN fully qualified: '%t'|] t
   print (DomainErrorErr e) = print e
 
+--------------------
+
 _UQDNNotFullyQualifiedErr ∷ Prism' UQDNError Text
-_UQDNNotFullyQualifiedErr = prism' UQDNFullyQualifiedErr
+_UQDNNotFullyQualifiedErr = prism' (\ t → UQDNFullyQualifiedErr t callStack)
                                    ( \ case
-                                         (UQDNFullyQualifiedErr t) → Just t
-                                         _                         → Nothing
+                                         (UQDNFullyQualifiedErr t _) → 𝕵 t
+                                         _                           → 𝕹
                                    )
+
+--------------------
 
 _DomainErrorErr ∷ Prism' UQDNError DomainError
 _DomainErrorErr = prism' DomainErrorErr
-                         (\ case (DomainErrorErr e) → Just e; _ → Nothing)
+                         (\ case (DomainErrorErr e) → 𝕵 e; _ → 𝕹)
 
---------------------
+------------------------------------------------------------
 
 class AsUQDNError ε where
   _UQDNError ∷ Prism' ε UQDNError

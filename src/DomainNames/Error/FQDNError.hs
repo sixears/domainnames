@@ -1,9 +1,3 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE UnicodeSyntax     #-}
-{-# LANGUAGE ViewPatterns      #-}
-
 module DomainNames.Error.FQDNError
   ( AsFQDNError( _FQDNError ), FQDNError( FQDNNotFullyQualifiedErr )
   , ToFQDNError( toFQDNError ), throwAsFQDNError )
@@ -12,9 +6,9 @@ where
 -- base --------------------------------
 
 import Control.Exception  ( Exception )
-import Data.Eq            ( Eq )
-import Data.Function      ( ($), id )
-import Data.Maybe         ( Maybe( Just, Nothing ) )
+import Data.Eq            ( Eq( (==) ) )
+import Data.Function      ( ($), (&), id )
+import GHC.Stack          ( CallStack, callStack )
 import Text.Show          ( Show )
 
 -- base-unicode-symbols ----------------
@@ -25,14 +19,21 @@ import Data.Function.Unicode  ( (∘) )
 
 import Data.Textual  ( Printable( print ) )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism' )
 import Control.Lens.Review  ( (#) )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Lens  ( (⩼) )
+import Data.MoreUnicode.Bool   ( pattern 𝕱 )
+import Data.MoreUnicode.Lens   ( (⊣), (⊢), (⩼) )
+import Data.MoreUnicode.Maybe  ( pattern 𝕵, pattern 𝕹 )
 
 -- mtl ---------------------------------
 
@@ -59,27 +60,42 @@ import DomainNames.Error.DomainError  ( AsDomainError( _DomainError )
 
 --------------------------------------------------------------------------------
 
-data FQDNError = FQDNNotFullyQualifiedErr Text
+data FQDNError = FQDNNotFullyQualifiedErr Text CallStack
                | DomainErrorErr DomainError
-  deriving (Eq, Show)
+  deriving Show
 
 instance Exception FQDNError
 
+instance Eq FQDNError where
+  (FQDNNotFullyQualifiedErr t1 _) == (FQDNNotFullyQualifiedErr t2 _) = t1 == t2
+  (DomainErrorErr e1) == (DomainErrorErr e2) = e1 == e2
+  _ == _ = 𝕱
+
+instance HasCallstack FQDNError where
+  callstack = lens (\ case FQDNNotFullyQualifiedErr _ cs → cs
+                           DomainErrorErr de             → de ⊣ callstack)
+                   (\ fe cs →
+                      case fe of
+                        FQDNNotFullyQualifiedErr t _ →
+                          FQDNNotFullyQualifiedErr t cs
+                        DomainErrorErr de → DomainErrorErr $ de & callstack ⊢ cs
+                   )
+
 instance Printable FQDNError where
-  print (FQDNNotFullyQualifiedErr t) =
+  print (FQDNNotFullyQualifiedErr t _) =
     P.text $ [fmt|FQDN not fully qualified: '%t'|] t
   print (DomainErrorErr e) = print e
 
 _FQDNNotFullyQualifiedErr ∷ Prism' FQDNError Text
-_FQDNNotFullyQualifiedErr = prism' FQDNNotFullyQualifiedErr
+_FQDNNotFullyQualifiedErr = prism' (\ t → FQDNNotFullyQualifiedErr t callStack)
                                    ( \ case
-                                         (FQDNNotFullyQualifiedErr t) → Just t
-                                         _                            → Nothing
+                                         (FQDNNotFullyQualifiedErr t _) → 𝕵 t
+                                         _                              → 𝕹
                                    )
 
 _DomainErrorErr ∷ Prism' FQDNError DomainError
 _DomainErrorErr = prism' DomainErrorErr
-                         (\ case (DomainErrorErr e) → Just e; _ → Nothing)
+                         (\ case (DomainErrorErr e) → 𝕵 e; _ → 𝕹)
 
 --------------------
 

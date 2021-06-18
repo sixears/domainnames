@@ -7,7 +7,7 @@ name:                domainnames
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.1.0.2
+version:             0.1.1.0
 
 -- A short (one-line) description of the package.
 synopsis:            domain names data types
@@ -70,6 +70,7 @@ library
                     , OverloadedStrings
                     , PatternSynonyms
                     , QuasiQuotes
+                    , RankNTypes
                     , TemplateHaskell
                     , UnicodeSyntax
                     , ViewPatterns
@@ -83,10 +84,11 @@ library
                     , hashable, lens, mtl, tasty , tasty-hunit
                     , template-haskell, text , text-printer, yaml
 
+                    , has-callstack        >= 1.0.1.0
                     , ip4                  >= 0.0.0.0
                     , more-unicode         >= 0.0.15.0
                     , non-empty-containers >= 1.4.1.0
-                    , proclib              >= 3.2.0.0
+                    , proclib              >= 3.2.2.0
                     , quasiquoting         >= 1.0.0.0
                     , tasty-plus           >= 1.5.0.1
                     , tfmt                 >= 0.2.4.0

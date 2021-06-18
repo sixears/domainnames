@@ -25,6 +25,7 @@ import Data.Ord            ( Ord, max, min )
 import Data.String         ( String )
 import Data.Tuple          ( swap )
 import GHC.Generics        ( Generic )
+import GHC.Stack           ( callStack )
 import Text.Show           ( Show )
 
 -- base-unicode-symbols ----------------
@@ -187,11 +188,11 @@ parseHostname ∷ (Printable ρ, AsHostnameError ε, MonadError ε η) ⇒
 parseHostname (toText → t) =
   case unsnoc t of
     Nothing →
-      throwAsHostnameError DomainEmptyErr
+      throwAsHostnameError $ DomainEmptyErr callStack
     Just (_,'.') →
       either throwAsHostnameError (return ∘ Hostname) $ parseFQDN' t
     Just (_,_) →
-      throwAsHostnameError $ HostnameNotFullyQualifiedE t
+      throwAsHostnameError $ HostnameNotFullyQualifiedE t callStack
 
 parseHostname' ∷ (Printable ρ, MonadError HostnameError η) ⇒ ρ → η Hostname
 parseHostname' = parseHostname

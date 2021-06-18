@@ -22,6 +22,7 @@ import Data.List.NonEmpty  ( NonEmpty( (:|) ), fromList, head )
 import Data.Maybe          ( Maybe( Just, Nothing ) )
 import Data.Ord            ( Ord, (>) )
 import Data.String         ( String )
+import GHC.Stack           ( HasCallStack, callStack )
 import Text.Show           ( Show )
 
 -- base-unicode-symbols ----------------
@@ -149,12 +150,12 @@ parseDomainLabel ∷ (Printable ρ, AsDomainLabelError ε, MonadError ε η) ⇒
                    ρ → η DomainLabel
 parseDomainLabel (toText → d) =
   case uncons d of
-    Nothing       → throwAsDomainLabelError DomainLabelEmptyErr
-    Just ('-', _) → throwAsDomainLabelError $ DomainLabelHyphenFirstCharErr d
+    Nothing       → throwAsDomainLabelError $ DomainLabelEmptyErr callStack
+    Just ('-', _) → throwAsDomainLabelError $ DomainLabelHyphenFirstCharErr d callStack
     _             → if any ( \ c → not $ isAlphaNum c ∨ c ≡ '-' ) d
-                    then throwAsDomainLabelError $ DomainLabelIllegalCharErr d
+                    then throwAsDomainLabelError $ DomainLabelIllegalCharErr d callStack
                     else if fromIntegral (length d) > maxLabelLength
-                         then throwAsDomainLabelError $ DomainLabelLengthErr d
+                         then throwAsDomainLabelError $ DomainLabelLengthErr d callStack
                          else return $ DomainLabel d
 
 parseDomainLabel' ∷ (Printable ρ, MonadError DomainLabelError η) ⇒
@@ -209,17 +210,20 @@ instance FromDhall DomainLabels where
 
 checkDomainLength ∷ (AsDomainError ε, MonadError ε η) ⇒
                     NonEmpty DomainLabel → η DomainLabels
-checkDomainLength dls = let txt = renderDomainLabels dls
-                         in if fromIntegral (length txt) > maxDomainLength
-                            then throwAsDomainError $ DomainLengthErr txt
-                            else return $ DomainLabels dls
+checkDomainLength dls =
+  let txt = renderDomainLabels dls
+   in if fromIntegral (length txt) > maxDomainLength
+      then throwAsDomainError $ DomainLengthErr txt callStack
+      else return $ DomainLabels dls
 
 ----------------------------------------
 
-parseDomainLabels ∷ (Printable ρ, AsDomainError ε, MonadError ε η) ⇒
+parseDomainLabels ∷ forall ε ρ η .
+                    (Printable ρ, AsDomainError ε, MonadError ε η,
+                     HasCallStack) ⇒
                     ρ → η DomainLabels
 parseDomainLabels (splitOn "." ∘ toText → ("" :| [])) =
-  throwAsDomainError DomainEmptyErr
+  throwAsDomainError $ DomainEmptyErr callStack
 parseDomainLabels (splitOn "." ∘ toText → ds) =
   case mapM parseDomainLabel' ds of
     Left  dle → throwAsDomainError dle
