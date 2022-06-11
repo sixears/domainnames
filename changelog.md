@@ -1,3 +1,7 @@
+0.1.2.0 2022-06-11
+==================
+- add Textual instance for Hostname
+
 0.1.1.2 2022-04-15
 ==================
 - upgrade dependencies

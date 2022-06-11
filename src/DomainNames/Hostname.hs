@@ -7,6 +7,7 @@ module DomainNames.Hostname
   )
 where
 
+import Base1
 import Prelude  ( error )
 
 -- aeson -------------------------------
@@ -15,24 +16,10 @@ import Data.Aeson.Types  ( typeMismatch )
 
 -- base --------------------------------
 
-import Control.Monad       ( fail, return )
-import Data.Either         ( either, fromRight )
-import Data.Eq             ( Eq )
-import Data.Function       ( ($), (&) )
-import Data.List.NonEmpty  ( NonEmpty( (:|) ) )
-import Data.Maybe          ( Maybe( Just, Nothing ) )
-import Data.Ord            ( Ord, max, min )
-import Data.String         ( String )
+import Control.Monad       ( fail )
+import Data.Either         ( fromRight )
 import Data.Tuple          ( swap )
 import GHC.Generics        ( Generic )
-import GHC.Stack           ( callStack )
-import Text.Show           ( Show )
-
--- base-unicode-symbols ----------------
-
-import Data.Eq.Unicode        ( (≡) )
-import Data.Function.Unicode  ( (∘) )
-import Data.Monoid.Unicode    ( (⊕) )
 
 -- containers --------------------------
 
@@ -40,13 +27,9 @@ import qualified  Data.Map  as  Map
 
 import Data.Map  ( mapAccumWithKey )
 
--- data-default ------------------------
-
-import Data.Default  ( def )
-
 -- data-textual ------------------------
 
-import Data.Textual  ( Printable( print ), toString, toText )
+import Data.Textual  ( Textual( textual ) )
 
 -- deepseq -----------------------------
 
@@ -55,10 +38,6 @@ import Control.DeepSeq  ( NFData )
 -- dhall -------------------------------
 
 import Dhall  ( FromDhall( autoWith ) )
-
--- hashable ----------------------------
-
-import Data.Hashable  ( Hashable )
 
 -- ip4 ---------------------------------
 
@@ -71,18 +50,16 @@ import Control.Lens.Iso     ( from, iso )
 
 -- more-unicode ------------------------
 
-import Data.MoreUnicode.Functor  ( (⊳) )
-import Data.MoreUnicode.Maybe    ( 𝕄, pattern 𝕵 )
-import Data.MoreUnicode.Monoid   ( ф )
-import Data.MoreUnicode.Lens     ( (⊣), (⊩) )
-
--- mtl ---------------------------------
-
-import Control.Monad.Except  ( MonadError )
+import Data.MoreUnicode.Lens  ( (⊩) )
 
 -- non-empty-containers ----------------
 
 import NonEmptyContainers.NonEmptyHashSet  ( NonEmptyHashSet, toNEList )
+
+-- parsers -----------------------------
+
+import Text.Parser.Char         ( anyChar )
+import Text.Parser.Combinators  ( unexpected )
 
 -- quasiquoting ------------------------
 
@@ -95,11 +72,7 @@ import Language.Haskell.TH.Quote  ( QuasiQuoter )
 
 -- text --------------------------------
 
-import Data.Text  ( Text, unsnoc )
-
--- tfmt --------------------------------
-
-import Text.Fmt  ( fmt )
+import Data.Text  ( Text, pack, unsnoc )
 
 -- yaml --------------------------------
 
@@ -139,12 +112,13 @@ instance FromJSON Localname where
   parseJSON (String t) = either (fail ∘ toString) return $ parseLocalname' t
   parseJSON invalid    = typeMismatch "localname" invalid
 
-parseLocalname ∷ (Printable ρ, AsLocalnameError ε, MonadError ε η) ⇒
+parseLocalname ∷ ∀ ε ρ η . (Printable ρ, AsLocalnameError ε, MonadError ε η) ⇒
                  ρ → η Localname
 parseLocalname (toText → t) =
   either throwAsLocalnameError (return ∘ Localname) $ parseDomainLabel' t
 
-parseLocalname' ∷ (Printable ρ, MonadError LocalnameError η) ⇒ ρ → η Localname
+parseLocalname' ∷ ∀ ρ η . (Printable ρ, MonadError LocalnameError η) ⇒
+                  ρ → η Localname
 parseLocalname' = parseLocalname
 
 __parseLocalname ∷ Printable ρ ⇒ ρ → Localname
@@ -166,8 +140,15 @@ newtype Hostname = Hostname { unHostname ∷ FQDN }
 instance Printable Hostname where
   print (Hostname fq) = print fq
 
+instance Textual Hostname where
+  textual = some anyChar ≫ \ s → let t = pack s
+                                  in case parseHostname @HostnameError t of
+                                   𝕽 h → return $ h
+                                   𝕷 e → unexpected $ show e
+
 instance IsDomainLabels Hostname where
-  domainLabels = iso (view domainLabels ∘ unHostname) (Hostname ∘ view (from domainLabels))
+  domainLabels = iso (view domainLabels ∘ unHostname)
+                     (Hostname ∘ view (from domainLabels))
 
 ----------------------------------------
 
@@ -183,7 +164,7 @@ instance FromJSON Hostname where
   parseJSON (String t) = either (fail ∘ toString) return $ parseHostname' t
   parseJSON invalid    = typeMismatch "hostname" invalid
 
-parseHostname ∷ (Printable ρ, AsHostnameError ε, MonadError ε η) ⇒
+parseHostname ∷ ∀ ε ρ η . (Printable ρ, AsHostnameError ε, MonadError ε η) ⇒
                 ρ → η Hostname
 parseHostname (toText → t) =
   case unsnoc t of
@@ -194,7 +175,8 @@ parseHostname (toText → t) =
     Just (_,_) →
       throwAsHostnameError $ HostnameNotFullyQualifiedE t callStack
 
-parseHostname' ∷ (Printable ρ, MonadError HostnameError η) ⇒ ρ → η Hostname
+parseHostname' ∷ ∀ ρ η . (Printable ρ, MonadError HostnameError η) ⇒
+                 ρ → η Hostname
 parseHostname' = parseHostname
 
 __parseHostname ∷ Printable ρ ⇒ ρ → Hostname
